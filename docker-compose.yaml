@@ -2,25 +2,51 @@ version: '3.3'
 
 services:
 
-  preverse-roxy:
-    image: traefik:v1.7 # The official Traefik docker image
-    command: --api --docker # Enables the web UI and tells Traefik to listen to docker
+  reverse-proxy:
+    image: traefik:v2.3
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - "80:80"     # The HTTP port
-      - "8080:8080" # The Web UI (enabled by --api)
+      # Web
+      - 80:80
+      - 443:443
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik.toml:/etc/traefik/traefik.toml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # On map la conf statique dans le conteneur
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      # On map la conf dynamique statique dans le conteneur
+      - ./config.yml:/etc/traefik/config.yml:ro
+      # On map les certificats dans le conteneur
+      - ./certs:/etc/certs:ro
     networks:
       - atometic
+    labels:
+      # Permettre à ce conteneur d'être accessible par traefik
+      # Pour plus d'information, voir : https://docs.traefik.io/providers/docker/#exposedbydefault
+      - "traefik.enable=true"
+      # Utilise la configuration du routeur "traefik" définie dans le fichier de configuration dynamique : ./traefik/config.yml
+      - "traefik.http.routers.traefik=true"
 
+#  app:
+#    image: wordpress
+#    container_name: wordpress
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.whoami.rule=Host(`willersurthur.local.atometic.fr`)"
+#      - "traefik.http.routers.whoami.tls=true"
+#    networks:
+#      - atometic
+##########################################################
   wordpress:
     image: wordpress
     restart: always
     labels:
       - "traefik.port=80"
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:willersurthur.local.atometic.fr"
+      - "traefik.http.routers.wp.rule=Host(`willersurthur.local.atometic.fr`)"
+      - "traefik.http.routers.wp.tls=true"
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: exampleuser
@@ -30,7 +56,7 @@ services:
       - ./wordpress_files:/var/www/html
     networks:
       - atometic
-
+##########################################################
   db:
     image: mysql:5.7
     restart: always
@@ -41,23 +67,26 @@ services:
       MYSQL_ROOT_PASSWORD: root
       #MYSQL_RANDOM_ROOT_PASSWORD: '1'
     ports:
-      - 3306:3306
+      # externe : dans conteneur
+      - 13306:3306
     labels:
       - "traefik.port=3306"
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:willersurthur-db.local.atometic.fr"
+      - "traefik.http.routers.db.rule=Host(`willersurthur-db.local.atometic.fr`)"
     volumes:
       - ./db_data:/var/lib/mysql
     networks:
       - atometic
-
+##########################################################
   mail:
     restart: always
-    image: mailhog/mailhog
+    image: mailhog/mailhog:latest
+#    ports:
+#      - 80:8025
     labels:
-      - "traefik.frontend.rule=Host:willersurthur-mail.local.atometic.fr"
-      - "traefik.enable=true"
       - "traefik.port=8025"
+      - "traefik.enable=true"
+      - "traefik.http.routers.mail.rule=Host(`willersurthur-mail.local.atometic.fr`)"
     networks:
       - atometic
 
