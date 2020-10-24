@@ -1,0 +1,23 @@
+  debug = false
+    [accessLog]
+
+    logLevel = "INFO"
+    defaultEntryPoints = ["http"]
+
+    [entryPoints]
+    [entryPoints.http]
+    address = ":80"
+    [entryPoints.traefik]
+    address = ":8081"
+
+    [retry]
+
+    [docker]
+    endpoint = "unix:///var/run/docker.sock"
+    domain = "local.atometic.fr"
+    watch = true
+    exposedByDefault = false
+
+    [api]
+    entryPoint = "traefik"
+    dashboard = true
