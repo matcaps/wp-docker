@@ -1,0 +1,66 @@
+version: '3.3'
+
+services:
+
+  preverse-roxy:
+    image: traefik:v1.7 # The official Traefik docker image
+    command: --api --docker # Enables the web UI and tells Traefik to listen to docker
+    ports:
+      - "80:80"     # The HTTP port
+      - "8080:8080" # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/etc/traefik/traefik.toml
+    networks:
+      - atometic
+
+  wordpress:
+    image: wordpress
+    restart: always
+    labels:
+      - "traefik.port=80"
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:willersurthur.local.atometic.fr"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: exampleuser
+      WORDPRESS_DB_PASSWORD: examplepass
+      WORDPRESS_DB_NAME: exampledb
+    volumes:
+      - ./wordpress_files:/var/www/html
+    networks:
+      - atometic
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: exampledb
+      MYSQL_USER: exampleuser
+      MYSQL_PASSWORD: examplepass
+      MYSQL_ROOT_PASSWORD: root
+      #MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    ports:
+      - 3306:3306
+    labels:
+      - "traefik.port=3306"
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:willersurthur-db.local.atometic.fr"
+    volumes:
+      - ./db_data:/var/lib/mysql
+    networks:
+      - atometic
+
+  mail:
+    restart: always
+    image: mailhog/mailhog
+    labels:
+      - "traefik.frontend.rule=Host:willersurthur-mail.local.atometic.fr"
+      - "traefik.enable=true"
+      - "traefik.port=8025"
+    networks:
+      - atometic
+
+networks:
+  atometic:
+    external: true
